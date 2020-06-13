@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+
+    <title>OSTIA visualizer</title>
+
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style type="text/css">
+
+        * {
+            margin: 0;
+            padding: 0;
+        }
+
+        #network {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<div id="network"></div>
+
+<script type="text/javascript">
+
+    let current = 0;
+
+    let transducers = {0: [[], []]};
+
+    let nodes = new vis.DataSet([]);
+
+    let edges = new vis.DataSet([]);
+
+    let container = document.getElementById('network');
+
+    let data = {
+        nodes: nodes,
+        edges: edges
+    };
+    let options = {};
+
+    let network = new vis.Network(container, data, options);
+
+    let queue = [];
+
+    fetch('ostia-log.py').then(r => r.text()).then(t => {
+        queue = t.split('\n');
+        setInterval(dispatch, 50);
+    });
+
+    let patterns = {
+        addNode:    /FSTs\[(\d+)\].Q.append\('([^']*)'\)/,
+        removeNode: /FSTs\[(\d+)\].Q.remove\('([^']*)'\)/,
+        addEdge:    /FSTs\[(\d+)\].E.append\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)/,
+        removeEdge: /FSTs\[(\d+)\].E.remove\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)/,
+        modifyEdge: /FSTs\[(\d+)\].E\[FSTs\[\d+\]\.E\.index\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)\]\[(\d+)\] = '([^']*)'/,
+        dispose:    /del FSTs\[(\d+)\]/,
+        copy:       /FSTs\[(\d+)\] = FSTs\[(\d+)\].copy_fst\(\)/,
+    };
+
+    let dispatch = () => {
+        while (queue && (patterns.dispose.test(queue[0]))) {
+            let [_, instance] = queue.shift().match(patterns.dispose);
+            delete transducers[instance];
+        }
+        if (!queue) {
+            return;
+        }
+        let line = queue.shift();
+        let type = '?';
+        for (let key of Object.keys(patterns)) {
+            if (patterns[key].test(line)) {
+                type = key;
+            }
+        }
+        if (patterns.addNode.test(line)) {
+            let [_, instance, node] = line.match(patterns.addNode);
+            if (instance !== current) {
+                nodes.update(transducers[instance][0]);
+                edges.update(transducers[instance][1]);
+                current = instance;
+            }
+            node = node || 'ε';
+            nodes.add({id: node, label: node})
+        }
+        if (patterns.removeNode.test(line)) {
+            let [_, instance, node] = line.match(patterns.removeNode);
+            if (instance !== current) {
+                nodes.update(transducers[instance][0]);
+                edges.update(transducers[instance][1]);
+                current = instance;
+            }
+            node = node || 'ε';
+            nodes.remove({id: node, label: node})
+        }
+        if (patterns.addEdge.test(line)) {
+            let [_, instance, from, input, output, to] = line.match(patterns.addEdge);
+            if (instance !== current) {
+                nodes.update(transducers[instance][0]);
+                edges.update(transducers[instance][1]);
+                current = instance;
+            }
+            if (!edges.get(`${from || 'ε'}:${to || 'ε'}:${input}`)) {
+                edges.add({id: `${from || 'ε'}:${to || 'ε'}:${input}`, from: from || 'ε', to: to || 'ε', label: `${input}:${output || 'ε'}`, arrows: 'to'});
+            }
+        }
+        if (patterns.removeEdge.test(line)) {
+            let [_, instance, from, input, output, to] = line.match(patterns.removeEdge);
+            if (instance !== current) {
+                nodes.update(transducers[instance][0]);
+                edges.update(transducers[instance][1]);
+                current = instance;
+            }
+            edges.remove([`${from || 'ε'}:${to || 'ε'}:${input}`]);
+        }
+        if (patterns.modifyEdge.test(line)) {
+            let [_, instance, from, input, output, to, field, value] = line.match(patterns.modifyEdge);
+            if (instance !== current) {
+                nodes.update(transducers[instance][0]);
+                edges.update(transducers[instance][1]);
+                current = instance;
+            }
+            let edge = {
+                from: from || 'ε', 
+                to: to || 'ε', 
+                input: input || 'ε',
+                output: output || 'ε',
+                arrows: 'to'
+            };
+            edges.remove([`${from || 'ε'}:${to || 'ε'}:${input}`]);
+            edge[['from', 'input', 'output', 'to'][parseInt(field)]] = value || 'ε';
+            edge.label = `${edge.input}:${edge.output}`;
+            edge.id = `${edge.from || 'ε'}:${edge.to || 'ε'}:${input}`;
+            delete edge.input;
+            delete edge.output;
+            edges.add(edge);
+        }
+        if (patterns.copy.test(line)) {
+            let [_, target, source] = line.match(patterns.copy);
+            transducers[target] = JSON.parse(JSON.stringify(transducers[source]));
+        } else {
+            transducers[current] = [nodes.get(), edges.get()]
+        }
+    };
+
+</script>
+</body>
+</html>
