@@ -14,16 +14,44 @@
             padding: 0;
         }
 
+        body {
+            font-family: 'Segoe UI', sans-serif;
+        }
+
         #network {
             width: 100vw;
             height: 100vh;
         }
+
+        #overlay {
+            position: fixed;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10000;
+            background: white;
+            vertical-align: middle;
+            text-align: center;
+            line-height: 100vh;
+        }
+
+        #overlay p {
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
+
+<div id="overlay">
+    <p><a href="#" id="demo">Show demo</a> or load log file: <input type="file"></p>
+</div>
+
 <div id="network"></div>
 
 <script type="text/javascript">
+
+    const SPEED = 50;
 
     let current = 0;
 
@@ -45,10 +73,22 @@
 
     let queue = [];
 
-    fetch('ostia-log.py').then(r => r.text()).then(t => {
-        queue = t.split('\n');
-        setInterval(dispatch, 50);
-    });
+    document.querySelector('#demo').onclick = event => {
+        event.preventDefault();
+        document.querySelector('#overlay').style.display = 'none';
+        fetch('ostia-log.py').then(r => r.text()).then(t => {
+            queue = t.split('\n');
+            setInterval(dispatch, SPEED);
+        });
+    };
+
+    document.querySelector('input[type=file]').onchange = event => {
+        document.querySelector('#overlay').style.display = 'none';
+        event.target.files[0].text().then(t => {
+            queue = t.split('\n');
+            setInterval(dispatch, SPEED);
+        });
+    };
 
     let patterns = {
         addNode:    /FSTs\[(\d+)\].Q.append\('([^']*)'\)/,
