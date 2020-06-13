@@ -3,7 +3,9 @@ Records the construction of a finite-state transducer as done by OSTIA (Onward S
 
 ## Recording
 
-To make use of ostia-visualizer, you will need to run OSTIA on your dataset of choice and obtain a **log**. Alternatively, a sample log is available for demonstration purposes: if this is of interest to you, please proceed to [Playback](#Playback).
+To make use of ostia-visualizer, you will need to run OSTIA on your dataset of choice and obtain a **log**. 
+
+(Alternatively, a sample log is available for demonstration purposes: if this is of interest to you, please proceed to [Playback](#Playback).)
 
 * Install [SigmaPie](https://github.com/alenaks/SigmaPie).
 * Override its `FST` class with the one provided in the [patch that is found in this repository](https://github.com/antecedent/ostia-visualizer/blob/master/patch/fst_object.py).
