@@ -103,7 +103,7 @@
         addEdge:    /FSTs\[(\d+)\].E.append\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)/,
         removeEdge: /FSTs\[(\d+)\].E.remove\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)/,
         modifyEdge: /FSTs\[(\d+)\].E\[FSTs\[\d+\]\.E\.index\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)\]\[(\d+)\] = '([^']*)'/,
-        dispose:    /del FSTs\[(\d+)\]/,
+        dispose:    /del FSTs\[(\d+)\]$/,
         copy:       /FSTs\[(\d+)\] = FSTs\[(\d+)\].copy_fst\(\)/,
         colorState: /color_state\('([^']*)', '([^']*)'\)/,
         stateOut:   /FSTs\[(\d+)\].stout\['([^']*)'\] = '([^']*)'/
