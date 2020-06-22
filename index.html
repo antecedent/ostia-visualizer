@@ -61,13 +61,20 @@
 
     let edges = new vis.DataSet([]);
 
+    let colorings = {};
+
     let container = document.getElementById('network');
 
     let data = {
         nodes: nodes,
         edges: edges
     };
-    let options = {};
+
+    let options = {
+        nodes: {
+            color: '#EEEEEE'
+        }
+    };
 
     let network = new vis.Network(container, data, options);
 
@@ -98,9 +105,37 @@
         modifyEdge: /FSTs\[(\d+)\].E\[FSTs\[\d+\]\.E\.index\(\['([^']*)', '([^']*)', '([^']*)', '([^']*)'\]\)\]\[(\d+)\] = '([^']*)'/,
         dispose:    /del FSTs\[(\d+)\]/,
         copy:       /FSTs\[(\d+)\] = FSTs\[(\d+)\].copy_fst\(\)/,
+        colorState: /color_state\('([^']*)', '([^']*)'\)/,
+        stateOut:   /FSTs\[(\d+)\].stout\['([^']*)'\] = '([^']*)'/
     };
 
     let dispatch = () => {
+
+        let checkInstance = instance => {
+            if (instance !== current) {
+                let ids = new Set(transducers[instance][0].map(q => q.id));
+                for (let id of nodes.get().map(q => q.id)) {
+                    if (!ids.has(id)) {
+                        nodes.remove([id]);
+                    }
+                }
+                nodes.update(transducers[instance][0]);
+                for (let q of Object.keys(colorings)) {
+                    if (nodes.get(q)) {
+                        nodes.updateOnly({id: q, color: colorings[q]});
+                    }
+                }
+                ids = new Set(transducers[instance][1].map(tr => tr.id));
+                for (let id of edges.get().map(tr => tr.id)) {
+                    if (!ids.has(id)) {
+                        edges.remove([id]);
+                    }
+                }
+                edges.update(transducers[instance][1]);
+                current = instance;
+            }
+        };
+
         while (queue && (patterns.dispose.test(queue[0]))) {
             let [_, instance] = queue.shift().match(patterns.dispose);
             delete transducers[instance];
@@ -117,51 +152,31 @@
         }
         if (patterns.addNode.test(line)) {
             let [_, instance, node] = line.match(patterns.addNode);
-            if (instance !== current) {
-                nodes.update(transducers[instance][0]);
-                edges.update(transducers[instance][1]);
-                current = instance;
-            }
+            checkInstance(instance);
             node = node || 'ε';
             nodes.add({id: node, label: node})
         }
         if (patterns.removeNode.test(line)) {
             let [_, instance, node] = line.match(patterns.removeNode);
-            if (instance !== current) {
-                nodes.update(transducers[instance][0]);
-                edges.update(transducers[instance][1]);
-                current = instance;
-            }
+            checkInstance(instance);
             node = node || 'ε';
             nodes.remove({id: node, label: node})
         }
         if (patterns.addEdge.test(line)) {
             let [_, instance, from, input, output, to] = line.match(patterns.addEdge);
-            if (instance !== current) {
-                nodes.update(transducers[instance][0]);
-                edges.update(transducers[instance][1]);
-                current = instance;
-            }
+            checkInstance(instance);
             if (!edges.get(`${from || 'ε'}:${to || 'ε'}:${input}`)) {
                 edges.add({id: `${from || 'ε'}:${to || 'ε'}:${input}`, from: from || 'ε', to: to || 'ε', label: `${input}:${output || 'ε'}`, arrows: 'to'});
             }
         }
         if (patterns.removeEdge.test(line)) {
             let [_, instance, from, input, output, to] = line.match(patterns.removeEdge);
-            if (instance !== current) {
-                nodes.update(transducers[instance][0]);
-                edges.update(transducers[instance][1]);
-                current = instance;
-            }
+            checkInstance(instance);
             edges.remove([`${from || 'ε'}:${to || 'ε'}:${input}`]);
         }
         if (patterns.modifyEdge.test(line)) {
             let [_, instance, from, input, output, to, field, value] = line.match(patterns.modifyEdge);
-            if (instance !== current) {
-                nodes.update(transducers[instance][0]);
-                edges.update(transducers[instance][1]);
-                current = instance;
-            }
+            checkInstance(instance);
             let edge = {
                 from: from || 'ε', 
                 to: to || 'ε', 
@@ -176,6 +191,16 @@
             delete edge.input;
             delete edge.output;
             edges.add(edge);
+        }
+        if (patterns.colorState.test(line)) {
+            let [_, state, color] = line.match(patterns.colorState);
+            nodes.update({id: state || 'ε', color: color == 'blue' ? '#99CCEE' : '#EE99CC'});
+            colorings[state || 'ε'] = color == 'blue' ? '#99CCEE' : '#EE99CC';
+        }
+        if (patterns.stateOut.test(line)) {
+            let [_, instance, state, output] = line.match(patterns.stateOut);
+            checkInstance(instance);
+            nodes.update({id: state || 'ε', label: `${state || 'ε'}:${output || 'ε'}`});
         }
         if (patterns.copy.test(line)) {
             let [_, target, source] = line.match(patterns.copy);
