@@ -12,7 +12,6 @@
 
 from copy import deepcopy
 
-
 class NotifyingView():
     
     def __init__(self, inner, identifier, notifications):
@@ -65,28 +64,32 @@ class FST():
         self.copy_counter = [0]
         self.identifier = f'FSTs[{self.copy_counter[0]}]'
         self.notifications = []
-        self.__Q = []
-        self.__E = []
+        self._Q = NotifyingView([], self.identifier + '.Q', self.notifications)
+        self._E = NotifyingView([], self.identifier + '.E', self.notifications)
         self.Sigma = Sigma
         self.Gamma = Gamma
         self.qe = ""
-        self.stout = None
+        self._stout = NotifyingView({}, self.identifier + '.stout', self.notifications)
         
     def __del__(self):
         self.notifications.append(f'del {self.identifier}')
     
     @property
     def Q(self):
-        return self.__Q
+        return self._Q
     
     @property
     def E(self):
-        return self.__E
+        return self._E
+
+    @property
+    def stout(self):
+        return self._stout
 
     @Q.setter
     def Q(self, value):
-        old_value = self.__Q
-        self.__Q = NotifyingView(value, self.identifier + '.Q', self.notifications)
+        old_value = self._Q
+        self._Q = NotifyingView(value, self.identifier + '.Q', self.notifications)
         for deletion in set(old_value) - set(value):
             self.notifications.append(f'{self.identifier}.Q.remove({repr(deletion)})')
         for addition in set(value) - set(old_value):
@@ -94,12 +97,24 @@ class FST():
         
     @E.setter
     def E(self, value):
-        old_value = self.__E
-        self.__E = NotifyingView(value, self.identifier + '.E', self.notifications)
+        old_value = self._E
+        self._E = NotifyingView(value, self.identifier + '.E', self.notifications)
         for deletion in set(tuple(e) for e in old_value) - set(tuple(e) for e in value):
             self.notifications.append(f'{self.identifier}.E.remove({repr(list(deletion))})')
         for addition in set(tuple(e) for e in value) - set(tuple(e) for e in old_value):
             self.notifications.append(f'{self.identifier}.E.append({repr(list(addition))})')
+
+    @stout.setter
+    def stout(self, value):
+        old_value = self._stout
+        self._stout = NotifyingView(value, self.identifier + '.stout', self.notifications)
+        for deletion in set(old_value) - set(value):
+            self.notifications.append(f'del {self.identifier}.stout[{repr(deletion)}]')
+        for addition in set(value) - set(old_value):
+            self.notifications.append(f'{self.identifier}.stout[{repr(addition)}] = {repr(value[addition])}')
+
+    def color_state(self, q, color):
+        self.notifications.append(f'color_state({repr(q)}, {repr(color)})')
 
     def rewrite(self, w):
         """
@@ -141,8 +156,8 @@ class FST():
             T (FST): a copy of the current FST.
         """
         T = FST()
-        T.__Q = self.__Q
-        T.__E = self.__E
+        T._Q = self._Q
+        T._E = self._E
         T.copy_counter = self.copy_counter
         T.copy_counter[0] += 1
         T.identifier = f'FSTs[{self.copy_counter[0]}]'
@@ -152,6 +167,6 @@ class FST():
         T.Sigma = deepcopy(self.Sigma)
         T.Gamma = deepcopy(self.Gamma)
         T.E = deepcopy(self.E.inner)
-        T.stout = deepcopy(self.stout)
+        T.stout = deepcopy(self.stout.inner)
         
         return T
