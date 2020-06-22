@@ -29,7 +29,7 @@ class NotifyingView():
         return item
 
     def __setitem__(self, key, value):
-        self.notifications.append(f'{self.identifier}[{key}] = {repr(value)}')
+        self.notifications.append(f'{self.identifier}[{repr(key)}] = {repr(value)}')
         self.inner[key] = value
 
     def __delitem__(self, key):
