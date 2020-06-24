@@ -200,6 +200,7 @@
         if (patterns.stateOut.test(line)) {
             let [_, instance, state, output] = line.match(patterns.stateOut);
             checkInstance(instance);
+            output = output.replace('*', '⊥');
             nodes.update({id: state || 'ε', label: `${state || 'ε'}:${output || 'ε'}`});
         }
         if (patterns.copy.test(line)) {
